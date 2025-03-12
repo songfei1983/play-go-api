@@ -13,10 +13,28 @@ go.work
 .vscode/
 *.swp
 *.swo
+*.swn
+.env
+*.iml
 
 # OS specific
 .DS_Store
-.env
+Thumbs.db
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # Project specific
-postgres_data/
+/postgres_data
+/tmp
+/dist
+/bin
+/vendor
+
+# Debug
+debug
+__debug_bin
+
+# Log files
+*.log

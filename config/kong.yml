@@ -1,0 +1,60 @@
+_format_version: "3.0"
+
+plugins:
+- config:
+    bandwidth_metrics: true
+    latency_metrics: true
+    per_consumer: false
+    status_code_metrics: true
+    upstream_health_metrics: true
+  enabled: true
+  name: prometheus
+
+services:
+  - name: admin-api
+    url: http://localhost:8001
+    routes:
+      - name: admin-api-route
+        paths:
+          - /admin-api
+        strip_path: true
+        preserve_host: true
+
+  - name: status-api
+    url: http://localhost:8001/status
+    routes:
+      - name: status-route
+        paths:
+          - /status
+        strip_path: true
+        preserve_host: true
+
+
+  - name: api-service
+    url: http://api:8080
+    routes:
+      - name: api-route
+        paths:
+          - /api/
+        strip_path: false
+        preserve_host: true
+    plugins:
+      - name: rate-limiting
+        config:
+          second: 1000
+          policy: local
+      - name: cors
+        config:
+          origins:
+            - '*'
+          methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - OPTIONS
+          headers:
+            - Content-Type
+            - Authorization
+          credentials: true
+          max_age: 3600

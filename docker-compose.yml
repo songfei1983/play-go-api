@@ -1,16 +1,140 @@
-version: '3.8'
+version: '3.9'
 
 services:
-  db:
-    image: postgres:15-alpine
+  mysql:
+    image: mysql:8.0
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: testdb
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: app_db
+      MYSQL_USER: app_user
+      MYSQL_PASSWORD: app_password
     ports:
-      - "5432:5432"
+      - "3306:3306"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mysql-exporter:
+    image: prom/mysqld-exporter:v0.15.1
+    ports:
+      - "9104:9104"
+    volumes:
+      - ./config/mysql-exporter.cnf:/etc/.my.cnf
+    environment:
+      - DATA_SOURCE_NAME=app_user:app_password@tcp(mysql:3306)/
+    command:
+      - '--config.my-cnf=/etc/.my.cnf'
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  otel-collector:
+    image: otel/opentelemetry-collector:0.96.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./config/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP http
+      - "8888:8888"   # metrics
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.54
+    ports:
+      - "16686:16686" # UI
+      - "14250:14250" # gRPC
+
+  prometheus:
+    image: prom/prometheus:v2.50.1
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:10.3.3
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/grafana/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+      - ./config/grafana/dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml
+      - ./config/grafana/api-dashboard.json:/var/lib/grafana/dashboards/api-dashboard.json
+      - ./config/grafana/kong-dashboard.json:/var/lib/grafana/dashboards/kong-dashboard.json
+      - ./config/grafana/mysql-dashboard.json:/var/lib/grafana/dashboards/mysql-dashboard.json
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/api-dashboard.json
+
+  kong:
+    image: kong:3.9
+    environment:
+      KONG_DATABASE: "off"
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+      KONG_DECLARATIVE_CONFIG: /usr/local/kong/declarative/kong.yml
+    ports:
+      - "8000:8000" # Proxy
+      - "8001:8001" # Admin API
+      - "8443:8443" # Proxy SSL
+      - "8444:8444" # Admin API SSL
+    volumes:
+      - ./config/kong.yml:/usr/local/kong/declarative/kong.yml
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=app_user
+      - DB_PASSWORD=app_password
+      - DB_NAME=app_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  redoc:
+    image: redocly/redoc:latest
+    ports:
+      - "8088:80"
+    environment:
+      - SPEC_URL=swagger.yaml
+    volumes:
+      - ./docs/swagger.yaml:/usr/share/nginx/html/swagger.yaml
+    depends_on:
+      - kong
 
 volumes:
-  postgres_data:
+  mysql_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:

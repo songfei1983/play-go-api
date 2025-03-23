@@ -1,0 +1,21 @@
+{
+  "theme": {
+    "colors": {
+      "primary": {
+        "main": "#2196f3"
+      }
+    },
+    "typography": {
+      "fontSize": "14px",
+      "fontFamily": "Roboto, sans-serif"
+    },
+    "sidebar": {
+      "backgroundColor": "#fafafa",
+      "textColor": "#333333"
+    }
+  },
+  "hideDownloadButton": true,
+  "hideLoading": true,
+  "expandResponses": "200,201",
+  "requiredPropsFirst": true
+}

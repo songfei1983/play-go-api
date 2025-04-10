@@ -1,66 +1,62 @@
-.PHONY: build run clean docker-build docker-up docker-down
+.PHONY: help test build run clean integration-test up down
 
-# Go related variables
-GO=go
-BINARY_NAME=play-go-api
+# Make help the default target
+.DEFAULT_GOAL := help
 
-# Docker related variables
-DOCKER_COMPOSE=docker-compose
+# COLORS
+GREEN  := $(shell tput -Txterm setaf 2)
+YELLOW := $(shell tput -Txterm setaf 3)
+WHITE  := $(shell tput -Txterm setaf 7)
+RESET  := $(shell tput sgr0)
 
-# Format Go code
-fmt:
-	$(GO) fmt ./...
+TARGET_MAX_CHAR_NUM=20
 
-# Run linter
-lint:
-	golangci-lint run ./...
-
-# Run tests
-test:
-	$(GO) test -v ./...
-
-# Default target
-all: build
-
-# Build binary
-build: fmt
-	$(GO) build -o $(BINARY_NAME) .
-
-# Run the application locally
-run: build
-	./$(BINARY_NAME)
-
-# Clean build artifacts
-clean:
-	rm -f $(BINARY_NAME)
-
-# Build Docker image
-docker-build:
-	$(DOCKER_COMPOSE) build
-
-# Start all Docker containers
-docker-up:
-	$(DOCKER_COMPOSE) up -d
-
-# Stop and remove all Docker containers and volumes
-docker-down:
-	$(DOCKER_COMPOSE) down -v
-
-# Start development environment
-dev: docker-up
-	$(GO) run main.go
-
-# Show help
+## Show help
 help:
-	@echo "Available targets:"
-	@echo "  fmt         - Format Go code"
-	@echo "  lint        - Run linter"
-	@echo "  test        - Run tests"
-	@echo "  build       - Build binary"
-	@echo "  run         - Run application locally"
-	@echo "  clean       - Clean build artifacts"
-	@echo "  docker-build- Build Docker image"
-	@echo "  docker-up   - Start Docker containers"
-	@echo "  docker-down - Stop Docker containers"
-	@echo "  dev         - Start development environment"
-	@echo "  help        - Show this help message"
+	@echo ''
+	@echo 'Usage:'
+	@echo '  ${YELLOW}make${RESET} ${GREEN}<target>${RESET}'
+	@echo ''
+	@echo 'Targets:'
+	@awk '/^[a-zA-Z\-\_0-9]+:/ { \
+		helpMessage = match(lastLine, /^## (.*)/); \
+		if (helpMessage) { \
+			helpCommand = substr($$1, 0, index($$1, ":")-1); \
+			helpMessage = substr(lastLine, RSTART + 3, RLENGTH); \
+			printf "  ${YELLOW}%-$(TARGET_MAX_CHAR_NUM)s${RESET} ${GREEN}%s${RESET}\n", helpCommand, helpMessage; \
+		} \
+	} \
+	{ lastLine = $$0 }' $(MAKEFILE_LIST)
+
+## Build the application
+build-app:
+	go build -o bin/app cmd/main.go
+
+## Run the application
+run: build-app
+	./bin/app
+
+## Run all tests
+test:
+	go test -v ./...
+
+## Run integration tests
+integration-test:
+	./test/integration_test.sh
+
+## Clean build artifacts
+clean:
+	rm -rf bin/
+	go clean
+
+## Build docker image
+build:
+	docker-compose build
+
+## Start Docker containers
+up: build
+	docker-compose up -d
+
+## Stop Docker containers
+down:
+	docker-compose down

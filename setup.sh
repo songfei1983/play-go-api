@@ -51,6 +51,12 @@ if ! command -v golangci-lint &> /dev/null; then
     brew install golangci-lint
 fi
 
+# 安装HTTPie
+if ! command -v http &> /dev/null; then
+    echo "Installing HTTPie..."
+    brew install httpie
+fi
+
 # 初始化pre-commit钩子
 echo "Initializing pre-commit hooks..."
 pre-commit install
@@ -62,6 +68,7 @@ echo "Docker version: $(docker --version)"
 echo "Docker Compose version: $(docker-compose --version)"
 echo "pre-commit version: $(pre-commit --version)"
 echo "golangci-lint version: $(golangci-lint --version)"
+echo "HTTPie version: $(http --version)"
 
 # 设置执行权限
 chmod +x setup.sh

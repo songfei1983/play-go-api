@@ -28,6 +28,30 @@ func New(app *app.App) *Server {
 	e.Use(middleware.RequestID())
 	e.Use(mymiddleware.MetricsMiddleware())
 
+	// Health check endpoint (before JWT middleware)
+	e.GET("/health", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]string{
+			"status":  "ok",
+			"version": "1.0.0",
+		})
+	})
+	e.OPTIONS("/health", func(c echo.Context) error {
+		return c.NoContent(http.StatusOK)
+	})
+
+	// Configure JWT middleware
+	jwtConfig := middleware.JWTConfig{
+		SigningKey: []byte("your-secret-key"),
+		Skipper: func(c echo.Context) bool {
+			// Skip authentication for signup and login routes
+			return c.Path() == "/health" ||
+				c.Path() == "/metrics" ||
+				c.Path() == "/api/v1/login" ||
+				c.Path() == "/api/v1/register"
+		},
+	}
+	e.Use(middleware.JWTWithConfig(jwtConfig)) // nolint: staticcheck
+
 	s := &Server{
 		app:    app,
 		router: e,
@@ -46,8 +70,12 @@ func (s *Server) setupRoutes() {
 
 	// API routes
 	v1 := s.router.Group("/api/v1")
-	v1.POST("/users", userHandler.Register)
+	v1.POST("/register", userHandler.Register)
+	v1.POST("/login", userHandler.Login) // Add login endpoint
 	v1.GET("/users/:id", userHandler.GetUser)
+	v1.PUT("/users/:id", userHandler.UpdateUser)
+	v1.DELETE("/users/:id", userHandler.SoftDeleteUser)
+	v1.PATCH("/users/:id", userHandler.RestoreUser)
 
 	// Metrics endpoint for Prometheus
 	s.router.GET("/metrics", echo.WrapHandler(promhttp.Handler()))

@@ -44,10 +44,10 @@ func New(cfg *config.Config) (*App, error) {
 
 func (a *App) Close() {
 	if sqlDB, err := a.DB.DB(); err == nil {
-		sqlDB.Close()
+		sqlDB.Close() // nolint: errcheck
 	}
 	if a.Redis != nil {
-		a.Redis.Close()
+		a.Redis.Close() // nolint: errcheck
 	}
 	if a.cleanup != nil {
 		a.cleanup()

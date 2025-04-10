@@ -11,9 +11,78 @@ servers:
 tags:
   - name: users
     description: User management operations
+  - name: health
+    description: Health check operations
+  - name: auth
+    description: Authentication operations
 
 paths:
+  /health:
+    get:
+      tags:
+        - health
+      summary: Health check
+      description: Check if the API is healthy
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  version:
+                    type: string
+                    example: 1.0.0
+
+  /api/v1/login:
+    post:
+      tags:
+        - auth
+      summary: Login user
+      description: Authenticate user and get JWT token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+
   /api/v1/users:
+    get:
+      tags:
+        - users
+      summary: List users
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: include_deleted
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
     post:
       tags:
         - users
@@ -42,7 +111,8 @@ paths:
       tags:
         - users
       summary: Get user by ID
-      description: Retrieve user information by ID
+      security:
+        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -57,18 +127,85 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+              example:
+                id: 1
+                username: "john_doe"
+                email: "john@example.com"
+                status: "active"
+                created_at: "2024-01-01T00:00:00Z"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
         '404':
-          description: User not found
+          $ref: '#/components/responses/NotFoundError'
         '500':
-          description: Internal server error
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/users/{id}/soft:
+    delete:
+      tags:
+        - users
+      summary: Soft delete user
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: User soft deleted
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/users/{id}/restore:
+    post:
+      tags:
+        - users
+      summary: Restore soft-deleted user
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: User restored
 
 components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+          format: password
+
     UserInput:
       type: object
       required:
         - username
         - password
+        - email
       properties:
         username:
           type: string
@@ -77,6 +214,19 @@ components:
           type: string
           description: User's password
           format: password
+        email:
+          type: string
+          format: email
+        first_name:
+          type: string
+        last_name:
+          type: string
+        phone:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive]
+          default: active
 
     User:
       type: object
@@ -87,6 +237,16 @@ components:
         username:
           type: string
           description: User's username
+        email:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        phone:
+          type: string
+        status:
+          type: string
         created_at:
           type: string
           format: date-time
@@ -95,3 +255,41 @@ components:
           type: string
           format: date-time
           description: Last update timestamp
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+
+  responses:
+    UnauthorizedError:
+      description: Authentication failed or token missing/invalid
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "missing or malformed jwt"
+
+    NotFoundError:
+      description: The specified resource was not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "user not found"
+
+    InternalError:
+      description: Internal server error occurred
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "internal server error"

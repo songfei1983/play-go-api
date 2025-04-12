@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -105,12 +106,10 @@ func (h *UserHandler) GetUser(c echo.Context) error {
 	userJSON, err := h.redis.Get(ctx, cacheKey).Result()
 	if err != nil && err != redis.Nil {
 		span.RecordError(err)
-		span.SetAttributes(semconv.HTTPResponseStatusCode(http.StatusInternalServerError))
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Cache error"})
 	}
 	if err == nil {
 		var user User
-		if err := json.Unmarshal([]byte(userJSON), &user); err != nil {
+		if err = json.Unmarshal([]byte(userJSON), &user); err != nil {
 			span.RecordError(err)
 			span.SetAttributes(semconv.HTTPResponseStatusCode(http.StatusInternalServerError))
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Cache unmarshal error"})
@@ -120,7 +119,13 @@ func (h *UserHandler) GetUser(c echo.Context) error {
 	}
 
 	var user User
-	if err := h.db.WithContext(ctx).First(&user, id).Error; err != nil {
+	intID, err := strconv.Atoi(id)
+	if err != nil {
+		span.RecordError(err)
+		span.SetAttributes(semconv.HTTPResponseStatusCode(http.StatusBadRequest))
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid user ID"})
+	}
+	if err = h.db.WithContext(ctx).First(&user, intID).Error; err != nil {
 		span.RecordError(err)
 		span.SetAttributes(semconv.HTTPResponseStatusCode(http.StatusNotFound))
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
@@ -156,7 +161,7 @@ func (h *UserHandler) GetUsers(c echo.Context) error {
 
 	if err := query.Find(&users).Error; err != nil {
 		span.RecordError(err)
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return echo.NewHTTPError(http.StatusNotFound, err.Error())
 	}
 
 	return c.JSON(http.StatusOK, users)
@@ -171,7 +176,13 @@ func (h *UserHandler) UpdateUser(c echo.Context) error {
 	id := c.Param("id")
 	var user User
 
-	if err := h.db.WithContext(ctx).First(&user, id).Error; err != nil {
+	intID, err := strconv.Atoi(id)
+	if err != nil {
+		span.RecordError(err)
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid user ID")
+	}
+
+	if err := h.db.WithContext(ctx).First(&user, intID).Error; err != nil {
 		span.RecordError(err)
 		return echo.NewHTTPError(http.StatusNotFound, "User not found")
 	}
@@ -207,9 +218,15 @@ func (h *UserHandler) SoftDeleteUser(c echo.Context) error {
 
 	id := c.Param("id")
 
-	if err := h.db.WithContext(ctx).Delete(&User{}, id).Error; err != nil {
+	intID, err := strconv.Atoi(id)
+	if err != nil {
 		span.RecordError(err)
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid user ID")
+	}
+
+	if err := h.db.WithContext(ctx).Model(&User{}).Unscoped().Where("id = ?", intID).Update("deleted_at", time.Now()).Error; err != nil {
+		span.RecordError(err)
+		return echo.NewHTTPError(http.StatusNotFound, err.Error())
 	}
 
 	// Clear cache

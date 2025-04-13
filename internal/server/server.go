@@ -23,6 +23,15 @@ type Server struct {
 func New(app *app.App) *Server {
 	e := echo.New()
 	e.Debug = true
+
+	// Add CORS middleware
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch, http.MethodOptions},
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+		MaxAge:       86400, // 24小时
+	}))
+
 	e.Use(middleware.Logger())
 	e.Use(otelecho.Middleware("api-service"))
 	e.Use(middleware.RequestID())
@@ -70,15 +79,30 @@ func (s *Server) setupRoutes() {
 
 	// API routes
 	v1 := s.router.Group("/api/v1")
+
+	// Register endpoints
 	v1.POST("/register", userHandler.Register)
-	v1.POST("/login", userHandler.Login) // Add login endpoint
+	v1.OPTIONS("/register", handleOptions)
+
+	// Login endpoints
+	v1.POST("/login", userHandler.Login)
+	v1.OPTIONS("/login", handleOptions)
+
+	// User management endpoints
 	v1.GET("/users/:id", userHandler.GetUser)
 	v1.PUT("/users/:id", userHandler.UpdateUser)
 	v1.DELETE("/users/:id", userHandler.SoftDeleteUser)
 	v1.PATCH("/users/:id", userHandler.RestoreUser)
+	v1.OPTIONS("/users/:id", handleOptions)
 
 	// Metrics endpoint for Prometheus
 	s.router.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
+	s.router.OPTIONS("/metrics", handleOptions)
+}
+
+// handleOptions handles OPTIONS requests for CORS
+func handleOptions(c echo.Context) error {
+	return c.NoContent(http.StatusOK)
 }
 
 func (s *Server) Start() error {

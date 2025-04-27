@@ -111,6 +111,36 @@ make run
 make dev
 ```
 
+## Local Development
+
+### Prerequisites
+- Go 1.21 or higher
+- MySQL
+- Redis
+
+### Setting up local environment
+1. Copy the environment example file:
+```bash
+cp .env.example .env
+```
+
+2. Update the `.env` file with your local configuration if needed.
+
+3. Run the application locally:
+```bash
+make run-local
+```
+
+This will:
+- Set up the required environment variables
+- Build the application
+- Start the server locally
+
+You can also set environment variables manually using:
+```bash
+make set-env
+```
+
 ### 使用Docker Compose
 
 一键启动所有服务：

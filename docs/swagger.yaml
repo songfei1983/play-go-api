@@ -38,6 +38,26 @@ paths:
                     type: string
                     example: 1.0.0
 
+  /api/v1/users/current:
+    get:
+      tags:
+        - users
+      summary: Get current user
+      description: Get the currently authenticated user's information
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current user information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
   /api/v1/login:
     post:
       tags:

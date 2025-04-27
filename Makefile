@@ -1,4 +1,4 @@
-.PHONY: help test build run clean integration-test up down
+.PHONY: help test build run clean integration-test up down run-local set-env
 
 # Make help the default target
 .DEFAULT_GOAL := help
@@ -10,6 +10,17 @@ WHITE  := $(shell tput -Txterm setaf 7)
 RESET  := $(shell tput sgr0)
 
 TARGET_MAX_CHAR_NUM=20
+
+# Environment variables
+export DB_HOST ?= localhost
+export DB_PORT ?= 3306
+export DB_USER ?= app_user
+export DB_PASSWORD ?= app_password
+export DB_NAME ?= app_db
+export REDIS_HOST ?= localhost
+export REDIS_PORT ?= 6379
+export JWT_SECRET ?= your-secret-key
+export PORT ?= 8080
 
 ## Show help
 help:
@@ -30,11 +41,26 @@ help:
 
 ## Build the application
 build-app:
-	go build -o bin/app cmd/main.go
+	go build -o bin/app cmd/api/main.go
 
 ## Run the application
 run: build-app
 	./bin/app
+
+## Run the application locally with environment variables
+run-local: set-env
+	go run cmd/api/main.go
+
+## Set environment variables for local development
+set-env:
+	@echo "Setting up environment variables..."
+	@echo "DB_HOST=$(DB_HOST)"
+	@echo "DB_PORT=$(DB_PORT)"
+	@echo "DB_USER=$(DB_USER)"
+	@echo "DB_NAME=$(DB_NAME)"
+	@echo "REDIS_HOST=$(REDIS_HOST)"
+	@echo "REDIS_PORT=$(REDIS_PORT)"
+	@echo "PORT=$(PORT)"
 
 ## Run all tests
 test:

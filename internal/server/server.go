@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"net/http"
 
+	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/gommon/log"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/songfei1983/play-go-api/internal/app"
 	"github.com/songfei1983/play-go-api/internal/handler"
@@ -37,29 +39,19 @@ func New(app *app.App) *Server {
 	e.Use(middleware.RequestID())
 	e.Use(mymiddleware.MetricsMiddleware())
 
-	// Health check endpoint (before JWT middleware)
-	e.GET("/health", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]string{
-			"status":  "ok",
-			"version": "1.0.0",
-		})
-	})
-	e.OPTIONS("/health", func(c echo.Context) error {
-		return c.NoContent(http.StatusOK)
-	})
+	e.Logger.SetLevel(log.DEBUG)
 
 	// Configure JWT middleware
-	jwtConfig := middleware.JWTConfig{
-		SigningKey: []byte("your-secret-key"),
+	jwtConfig := echojwt.Config{
+		SigningKey: []byte("your-secret-key"), // Replace with your secret key
 		Skipper: func(c echo.Context) bool {
-			// Skip authentication for signup and login routes
-			return c.Path() == "/health" ||
-				c.Path() == "/metrics" ||
-				c.Path() == "/api/v1/login" ||
-				c.Path() == "/api/v1/register"
+			return c.Request().URL.Path == "/health" ||
+				c.Request().URL.Path == "/metrics" ||
+				c.Request().URL.Path == "/api/v1/login" ||
+				c.Request().URL.Path == "/api/v1/register"
 		},
 	}
-	e.Use(middleware.JWTWithConfig(jwtConfig)) // nolint: staticcheck
+	e.Use(echojwt.WithConfig(jwtConfig))
 
 	s := &Server{
 		app:    app,
@@ -89,6 +81,7 @@ func (s *Server) setupRoutes() {
 	v1.OPTIONS("/login", handleOptions)
 
 	// User management endpoints
+	v1.GET("/users/current", userHandler.GetCurrentUser)
 	v1.GET("/users/:id", userHandler.GetUser)
 	v1.PUT("/users/:id", userHandler.UpdateUser)
 	v1.DELETE("/users/:id", userHandler.SoftDeleteUser)
@@ -98,6 +91,17 @@ func (s *Server) setupRoutes() {
 	// Metrics endpoint for Prometheus
 	s.router.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 	s.router.OPTIONS("/metrics", handleOptions)
+
+	// Health check endpoint (before JWT middleware)
+	s.router.GET("/health", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]string{
+			"status":  "ok",
+			"version": "1.0.0",
+		})
+	})
+	s.router.OPTIONS("/health", func(c echo.Context) error {
+		return c.NoContent(http.StatusOK)
+	})
 }
 
 // handleOptions handles OPTIONS requests for CORS

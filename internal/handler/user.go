@@ -114,6 +114,8 @@ func (h *UserHandler) GetUser(c echo.Context) error {
 			span.SetAttributes(semconv.HTTPResponseStatusCode(http.StatusInternalServerError))
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Cache unmarshal error"})
 		}
+		// 添加数据来源标记：来自缓存
+		span.SetAttributes(attribute.String("data_source", "cache"))
 		span.SetAttributes(semconv.HTTPResponseStatusCode(http.StatusOK))
 		return c.JSON(http.StatusOK, user)
 	}
@@ -125,11 +127,14 @@ func (h *UserHandler) GetUser(c echo.Context) error {
 		span.SetAttributes(semconv.HTTPResponseStatusCode(http.StatusBadRequest))
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid user ID"})
 	}
-	if err = h.db.WithContext(ctx).First(&user, intID).Error; err != nil {
+	if err = h.db.WithContext(ctx).Where("deleted_at IS NULL").First(&user, intID).Error; err != nil {
 		span.RecordError(err)
 		span.SetAttributes(semconv.HTTPResponseStatusCode(http.StatusNotFound))
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
 	}
+
+	// 添加数据来源标记：来自MySQL
+	span.SetAttributes(attribute.String("data_source", "mysql"))
 
 	// Cache the user
 	userByte, err := json.Marshal(user)
@@ -298,4 +303,28 @@ func (h *UserHandler) Login(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{
 		"token": tokenString,
 	})
+}
+
+func (h *UserHandler) GetCurrentUser(c echo.Context) error {
+	ctx := c.Request().Context()
+	tracer := otel.Tracer("api-service")
+	ctx, span := tracer.Start(ctx, "UserHandler.GetCurrentUser")
+	span.SetAttributes(attribute.String("Request-ID", c.Response().Header().Get("X-Request-ID")))
+	defer span.End()
+
+	// Get JWT token from context
+	token := c.Get("user").(*jwt.Token)
+	claims := token.Claims.(jwt.MapClaims)
+	c.Logger().Info("Claims: ", claims)
+
+	var user User
+	if err := h.db.WithContext(ctx).First(&user, claims["user_id"]).Error; err != nil {
+		span.RecordError(err)
+		return echo.NewHTTPError(http.StatusNotFound, "User not found")
+	}
+
+	// Don't return the password
+	user.Password = ""
+
+	return c.JSON(http.StatusOK, user)
 }

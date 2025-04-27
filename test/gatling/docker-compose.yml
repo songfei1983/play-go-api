@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  gatling:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./results:/gatling/target/gatling
+      - ./src:/gatling/src
+    environment:
+      - KONG_HOST=http://kong:8000
+    networks:
+      - api-network
+
+networks:
+  api-network:
+    name: play-go-api_default
+    external: true

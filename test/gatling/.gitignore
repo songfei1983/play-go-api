@@ -1,0 +1,15 @@
+# Gatling测试结果
+results/
+
+# IDE特定文件
+.idea/
+*.iml
+
+# 编译输出
+target/
+*.class
+*.log
+
+# 临时文件
+*.tmp
+*.bak

@@ -103,6 +103,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/User'
+
+  /api/v1/register:
     post:
       tags:
         - users
@@ -153,8 +155,83 @@ paths:
                 email: "john@example.com"
                 status: "active"
                 created_at: "2024-01-01T00:00:00Z"
+        '400':
+          description: Invalid user ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid user ID"
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      tags:
+        - users
+      summary: Update user (full)
+      description: Update all fields of a user
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserInput'
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid input or user ID
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags:
+        - users
+      summary: Update user (partial)
+      description: Partially update user fields
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Partial user fields to update
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid input or user ID
         '404':
           $ref: '#/components/responses/NotFoundError'
         '500':

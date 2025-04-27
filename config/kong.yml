@@ -41,7 +41,7 @@ services:
     plugins:
       - name: rate-limiting
         config:
-          second: 1000
+          second: 1000000
           policy: local
       - name: cors
         config:

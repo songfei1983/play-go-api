@@ -15,6 +15,8 @@ tags:
     description: Health check operations
   - name: auth
     description: Authentication operations
+  - name: products
+    description: Product management operations
 
 paths:
   /health:
@@ -277,6 +279,185 @@ paths:
         '200':
           description: User restored
 
+  /api/v1/products:
+    get:
+      tags:
+        - products
+      summary: List products
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: include_deleted
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: List of products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+    post:
+      tags:
+        - products
+      summary: Create a new product
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+      responses:
+        '201':
+          description: Product created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          description: Invalid input
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/products/{id}:
+    get:
+      tags:
+        - products
+      summary: Get product by ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Product ID
+      responses:
+        '200':
+          description: Product found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    put:
+      tags:
+        - products
+      summary: Update product (full)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Product ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+      responses:
+        '200':
+          description: Product updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    patch:
+      tags:
+        - products
+      summary: Update product (partial)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Product ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Partial product fields to update
+      responses:
+        '200':
+          description: Product updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/v1/products/{id}/soft:
+    delete:
+      tags:
+        - products
+      summary: Soft delete product
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Product ID
+      responses:
+        '204':
+          description: Product soft deleted
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/v1/products/{id}/restore:
+    post:
+      tags:
+        - products
+      summary: Restore soft-deleted product
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Product ID
+      responses:
+        '200':
+          description: Product restored
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
 components:
   securitySchemes:
     BearerAuth:
@@ -356,6 +537,67 @@ components:
           type: string
           format: date-time
           nullable: true
+
+    ProductInput:
+      type: object
+      required:
+        - name
+        - price
+        - stock
+      properties:
+        name:
+          type: string
+          description: Product name
+        description:
+          type: string
+          description: Product description
+        price:
+          type: number
+          format: float
+          description: Product price
+        stock:
+          type: integer
+          description: Available stock quantity
+        status:
+          type: string
+          enum: [active, inactive]
+          default: active
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Product's unique identifier
+        name:
+          type: string
+          description: Product name
+        description:
+          type: string
+          description: Product description
+        price:
+          type: number
+          format: float
+          description: Product price
+        stock:
+          type: integer
+          description: Available stock quantity
+        status:
+          type: string
+          enum: [active, inactive]
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Soft delete timestamp
 
   responses:
     UnauthorizedError:

@@ -88,6 +88,17 @@ func (s *Server) setupRoutes() {
 	v1.PATCH("/users/:id", userHandler.RestoreUser)
 	v1.OPTIONS("/users/:id", handleOptions)
 
+	// Product routes
+	productHandler := handler.NewProductHandler(s.app.DB, s.app.Redis)
+	products := v1.Group("/products")
+	products.GET("", productHandler.List)
+	products.POST("", productHandler.Create)
+	products.GET("/:id", productHandler.Get)
+	products.PUT("/:id", productHandler.Update)
+	products.PATCH("/:id", productHandler.Update)
+	products.DELETE("/:id/soft", productHandler.Delete)
+	products.POST("/:id/restore", productHandler.Restore)
+
 	// Metrics endpoint for Prometheus
 	s.router.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 	s.router.OPTIONS("/metrics", handleOptions)

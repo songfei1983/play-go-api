@@ -51,7 +51,6 @@ func TestRegister(t *testing.T) {
 	e, handler, mock, _ := setupTest(t)
 
 	t.Run("成功注册用户", func(t *testing.T) {
-		// 准备请求数据
 		userJSON := `{"username":"testuser","password":"password123","email":"test@example.com"}`
 
 		// 创建请求
@@ -159,10 +158,10 @@ func TestGetUser(t *testing.T) {
 		c.SetParamValues("1")
 
 		// 设置Redis期望
-		redisMock.ExpectGet("user:1").SetVal(string(userJSON))
+		redisMock.ExpectGet("users:1").SetVal(string(userJSON))
 
 		// 执行请求
-		err := handler.GetUser(c)
+		err := handler.Get(c)
 
 		// 断言结果
 		assert.NoError(t, err)
@@ -492,7 +491,6 @@ func TestLogin(t *testing.T) {
 	e, handler, mock, _ := setupTest(t)
 
 	t.Run("登录成功", func(t *testing.T) {
-		// 准备请求数据
 		loginJSON := `{"username":"testuser","password":"password123"}`
 
 		// 创建请求
@@ -502,8 +500,8 @@ func TestLogin(t *testing.T) {
 		c := e.NewContext(req, rec)
 
 		// 设置数据库期望
-		rows := sqlmock.NewRows([]string{"id", "username", "password", "email", "first_name", "last_name", "phone", "status", "created_at", "updated_at", "deleted_at"}).
-			AddRow(1, "testuser", "password123", "test@example.com", "Test", "User", "1234567890", "active", time.Now(), time.Now(), nil)
+		rows := sqlmock.NewRows([]string{"id", "username", "password", "email", "status"}).
+			AddRow(1, "testuser", "password123", "test@example.com", "active")
 
 		mock.ExpectQuery("SELECT \\* FROM `users` WHERE username = \\? ORDER BY `users`\\.`id` LIMIT \\?").
 			WithArgs("testuser", 1).

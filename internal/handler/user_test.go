@@ -193,7 +193,7 @@ func TestGetUser(t *testing.T) {
 		rows := sqlmock.NewRows([]string{"id", "username", "password", "email", "first_name", "last_name", "phone", "status", "created_at", "updated_at", "deleted_at"}).
 			AddRow(1, "testuser", "password123", "test@example.com", "Test", "User", "1234567890", "active", time.Now(), time.Now(), nil)
 
-		mock.ExpectQuery("SELECT \\* FROM `users` WHERE `users`\\.`id` = \\? ORDER BY `users`\\.`id` LIMIT \\?").
+		mock.ExpectQuery("SELECT \\* FROM `users` WHERE deleted_at IS NULL AND `users`\\.`id` = \\? ORDER BY `users`\\.`id` LIMIT \\?").
 			WithArgs(1, 1).
 			WillReturnRows(rows)
 
@@ -228,7 +228,9 @@ func TestGetUser(t *testing.T) {
 		redisMock.ExpectGet("user:999").RedisNil()
 
 		// 设置数据库期望（返回错误，表示用户不存在）
-		mock.ExpectQuery("^SELECT (.+) FROM `users` WHERE (.+) LIMIT 1$").WillReturnError(gorm.ErrRecordNotFound)
+		mock.ExpectQuery("SELECT \\* FROM `users` WHERE deleted_at IS NULL AND `users`\\.`id` = \\? ORDER BY `users`\\.`id` LIMIT \\?").
+			WithArgs(999, 1).
+			WillReturnRows(sqlmock.NewRows([]string{}))
 
 		// 执行请求
 		err := handler.GetUser(c)
@@ -533,7 +535,9 @@ func TestLogin(t *testing.T) {
 		c := e.NewContext(req, rec)
 
 		// 设置数据库期望（返回错误，表示用户不存在）
-		mock.ExpectQuery("^SELECT (.+) FROM `users` WHERE (.+) LIMIT 1$").WillReturnError(gorm.ErrRecordNotFound)
+		mock.ExpectQuery("SELECT \\* FROM `users` WHERE username = \\? ORDER BY `users`\\.`id` LIMIT \\?").
+			WithArgs("nonexistent", 1).
+			WillReturnRows(sqlmock.NewRows([]string{}))
 
 		// 执行请求
 		err := handler.Login(c)
@@ -558,7 +562,9 @@ func TestLogin(t *testing.T) {
 		rows := sqlmock.NewRows([]string{"id", "username", "password", "email", "first_name", "last_name", "phone", "status", "created_at", "updated_at", "deleted_at"}).
 			AddRow(1, "testuser", "password123", "test@example.com", "Test", "User", "1234567890", "active", time.Now(), time.Now(), nil)
 
-		mock.ExpectQuery("^SELECT (.+) FROM `users` WHERE (.+) LIMIT 1$").WillReturnRows(rows)
+		mock.ExpectQuery("SELECT \\* FROM `users` WHERE username = \\? ORDER BY `users`\\.`id` LIMIT \\?").
+			WithArgs("testuser", 1).
+			WillReturnRows(rows)
 
 		// 执行请求
 		err := handler.Login(c)

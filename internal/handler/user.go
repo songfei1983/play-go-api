@@ -31,6 +31,16 @@ type User struct {
 	DeletedAt *time.Time `json:"deleted_at,omitempty" gorm:"index"`
 }
 
+// GetID 实现 Model 接口
+func (u User) GetID() uint {
+	return u.ID
+}
+
+// TableName 实现 Model 接口
+func (u User) TableName() string {
+	return "users"
+}
+
 type LoginRequest struct {
 	Username string `json:"username" validate:"required"`
 	Password string `json:"password" validate:"required"`
@@ -43,17 +53,16 @@ type Claims struct {
 }
 
 type UserHandler struct {
-	db    *gorm.DB
-	redis *redis.Client
+	*BaseHandler[User]
 }
 
 func NewUserHandler(db *gorm.DB, redis *redis.Client) *UserHandler {
 	return &UserHandler{
-		db:    db,
-		redis: redis,
+		BaseHandler: NewBaseHandler[User](db, redis),
 	}
 }
 
+// Register 用户注册方法
 func (h *UserHandler) Register(c echo.Context) error {
 	ctx := c.Request().Context()
 	tracer := otel.Tracer("api-service")
@@ -67,19 +76,18 @@ func (h *UserHandler) Register(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
 	}
 
-	// Validate required fields
+	// 验证必填字段
 	if user.Username == "" || user.Password == "" || user.Email == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Username, password and email are required"})
 	}
 
-	// Create user
 	result := h.db.WithContext(ctx).Create(&user)
 	if result.Error != nil {
 		span.RecordError(result.Error)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": result.Error.Error()})
 	}
 
-	// Return created user with ID
+	// 只返回必要的信息
 	return c.JSON(http.StatusCreated, map[string]interface{}{
 		"id":       user.ID,
 		"username": user.Username,

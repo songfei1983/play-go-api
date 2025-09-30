@@ -42,3 +42,18 @@ __debug_bin
 # Build output
 .metals/
 .scala-build/
+
+# Node.js specific
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.npm
+*.tsbuildinfo
+.eslintcache
+.node_repl_history
+.env*.local
+dist/
+dist-ssr/
+coverage/
